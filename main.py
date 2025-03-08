@@ -400,7 +400,7 @@ from telegram import Update
 from telegram.ext import Application, ChatJoinRequestHandler
 
 async def handle_chat_join_request(update: Update, context: CallbackContext):
-    """Обрабатывает заявки на вступление в группу."""
+    """Обрабатывает заявки на вступление в группу и отправляет приветствие."""
     user_id = update.chat_join_request.from_user.id
     chat_id = update.chat_join_request.chat.id
 
@@ -408,8 +408,23 @@ async def handle_chat_join_request(update: Update, context: CallbackContext):
     try:
         await context.bot.approve_chat_join_request(chat_id, user_id)
         logger.info(f"Заявка от пользователя {user_id} принята.")
+
+        # Отправляем ваше приветственное сообщение в группу
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "Сәлем, +гражданство деп жаз. Бұл бізге статистикаға керек. "
+                "Гражданство кірмегендер банға кетеді🥰"
+            )
+        )
     except Exception as e:
         logger.error(f"Ошибка при принятии заявки от пользователя {user_id}: {e}")
+
+async def handle_citizenship(update: Update, context: CallbackContext):
+    """Обрабатывает сообщение +гражданство и отвечает 'Жарайсың!'."""
+    if update.message.text.strip().lower() == "+гражданство":
+        # Отвечаем на сообщение пользователя
+        await update.message.reply_text("Жарайсың! 🥰")
 
 def main():
     """Запуск бота."""
@@ -418,10 +433,11 @@ def main():
     # Регистрация обработчиков
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^Сілтеме$"), handle_siltheme))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("(?i)^кезек$"), handle_queue))  # Команда "Кезек"
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("(?i)^кезек$"), handle_queue))
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^Кіре алмадым$"), handle_cannot_join))
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^Aнон$"), handle_anon))
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^Артқа$"), handle_back))
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^\+гражданство$"), handle_citizenship))  # Новый обработчик
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_anon_message))
     application.add_handler(CallbackQueryHandler(handle_exit_request, pattern="^request_unban_"))
     application.add_handler(CallbackQueryHandler(handle_admin_decision, pattern="^(accept_unban|deny_unban)_"))
@@ -432,10 +448,7 @@ def main():
 
     # Периодическая проверка очереди
     job_queue = application.job_queue
-    job_queue.run_repeating(notify_first_in_queue, interval=60.0, first=0.0)  # Проверка каждые 60 секунд
+    job_queue.run_repeating(notify_first_in_queue, interval=60.0, first=0.0)
 
     # Запуск бота
     application.run_polling()
-
-if __name__ == "__main__":
-    main()
